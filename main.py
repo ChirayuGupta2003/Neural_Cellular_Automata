@@ -3,6 +3,10 @@ import numpy as np
 from numba import jit, cuda, njit
 import time
 import random
+import pygame_gui
+from pygame_gui.elements import UITextEntryLine
+from pygame_gui.elements.ui_drop_down_menu import UIDropDownMenu
+from pygame_gui.elements.ui_button import UIButton
 
 
 pg.init()
@@ -16,18 +20,13 @@ CELL_SIDE = 1
 
 grid_cols = WIDTH // CELL_SIDE
 grid_rows = HEIGHT // CELL_SIDE
-
-
 screen = pg.display.set_mode((WIDTH, HEIGHT))
 
 
+
+
 def initialize():
-    # img = cv.imread("./img.jpg")
-    # game_matrix = cv.resize(img, (grid_cols, grid_rows))
-    # print(game_matrix)
-    # print(game_matrix.shape)
     game_matrix = np.random.randint(0, 2, (grid_rows, grid_cols))
-    # game_matrix = np.zeros((grid_rows, grid_cols, channels))
     return game_matrix
 
 
@@ -94,7 +93,12 @@ def slime_mould_activation(x):
 def worm(game_matrix: np.ndarray):
 
     worm_filter = np.array(
-        [[0.68, -.9, 0.68], [-.9, -.66, -.9], [0.68, -.9, 0.68]])
+        [
+             [0.68, -.9, 0.68],
+             [-.9, -.66, -.9],
+             [0.68, -.9, 0.68]
+         ]
+    )
     game_of_life_filter = np.array(
         [
             [1, 1, 1],
@@ -166,7 +170,7 @@ def worm(game_matrix: np.ndarray):
                         y_val = y_val - rows
 
                     ans += game_matrix[y_val, x_val] * \
-                        mitosis_filter[i+1, j+1]
+                        slime_mould_filter[i+1, j+1]
 
             temp_game_matrix[row, col] = slime_mould_activation(ans)
 
@@ -185,9 +189,97 @@ iterations_per_frame = 1
 running = True
 gameMatrix = initialize()
 
+manager = pygame_gui.UIManager((HEIGHT,WIDTH))
+
+# Create a simple menu element
+filter_options = ["Choose filter to use","Worm","Game of Life","Random","Pathways","Slime Mould","Waves","Mitosis"]
+drop_down1 = UIDropDownMenu(
+    options_list=filter_options,
+    starting_option="Choose filter to use",
+    relative_rect = pg.Rect((10,200),(200,30)),
+    manager=manager
+
+)
+
+# Create UITextEntryLine objects and associated increment/decrement buttons
+small_font = pg.font.Font(None, 18)
+number_input1 = UITextEntryLine(
+    relative_rect=pg.Rect(10, 40, 40, 30),
+    manager=manager,
+)
+number_input1.set_allowed_characters('numbers')
+
+
+number_input2 = UITextEntryLine(
+    relative_rect=pg.Rect(60, 40, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input2.set_allowed_characters('numbers')
+
+
+number_input3 = UITextEntryLine(
+    relative_rect=pg.Rect(110, 40, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input3.set_allowed_characters('numbers')
+
+
+number_input4 = UITextEntryLine(
+    relative_rect=pg.Rect(10, 80, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input4.set_allowed_characters('numbers')
+
+
+number_input5 = UITextEntryLine(
+    relative_rect=pg.Rect(60, 80, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input5.set_allowed_characters('numbers')
+
+
+number_input6 = UITextEntryLine(
+    relative_rect=pg.Rect(110, 80, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input6.set_allowed_characters('real')
+
+
+number_input7 = UITextEntryLine(
+    relative_rect=pg.Rect(10, 120, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input7.set_allowed_characters('numbers')
+
+
+number_input8 = UITextEntryLine(
+    relative_rect=pg.Rect(60, 120, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input8.set_allowed_characters('numbers')
+
+number_input9 = UITextEntryLine(
+    relative_rect=pg.Rect(110, 120, 40, 30),
+    manager=manager,
+    # set_allowed_characters = 'numbers'
+)
+number_input9.set_allowed_characters('numbers')
+
+current_filter = worm
+
+manager.draw_ui(screen)
+# Update the screen
+pg.display.flip()
 
 while running:
-
+    manager.draw_ui(screen)
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
@@ -203,7 +295,29 @@ while running:
                 iterations_per_frame -= 1
                 iterations_per_frame = max(1, iterations_per_frame)
                 print(iterations_per_frame)
-
+        if event.type == pg.USEREVENT:
+            if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
+                if event.ui_element == drop_down1:
+                    selected_option = event.text
+                    if selected_option == "Choose filter to use":
+                        current_filter = worm
+                    if selected_option == "Worm":
+                        current_filter = worm
+                    if selected_option == "Game of life":
+                        current_filter = game_of_life_activation
+                    if selected_option == "Random":
+                        current_filter = random
+                    if selected_option == "Pathways":
+                        current_filter = pathways_activation
+                    if selected_option == "Slime Mould":
+                        current_filter = slime_mould_activation
+                    if selected_option == "Waves":
+                        current_filter = waves_activation
+                    if selected_option == "Mitosis":
+                        current_filter = waves_activation
+        # manager.process_events(event)
+    if current_filter is not None:
+        gameMatrix = current_filter(gameMatrix)
     if grid_changed:
         draw_screen(screen, gameMatrix)
         grid_changed = False
@@ -218,11 +332,18 @@ while running:
         grid_changed = True
 
     for i in range(iterations_per_frame):
-        gameMatrix = worm(gameMatrix)
+        gameMatrix = slime_mould_activation(gameMatrix)
     grid_changed = True
+
+    manager.update(clock.tick(60) / 1000.0)
+
+    # Draw the UI elements
+    manager.draw_ui(screen)
 
     pg.display.flip()
     clock.tick(144)
 
 
 pg.quit()
+
+
