@@ -1,6 +1,6 @@
 import pygame as pg
 import numpy as np
-from numba import jit, cuda, njit
+from numba import jit, cuda, njit, prange
 import time
 import random
 
@@ -21,6 +21,7 @@ grid_rows = HEIGHT // CELL_SIDE
 screen = pg.display.set_mode((WIDTH, HEIGHT))
 
 
+@jit(nopython=True, parallel=True)
 def initialize():
     # img = cv.imread("./img.jpg")
     # game_matrix = cv.resize(img, (grid_cols, grid_rows))
@@ -34,14 +35,14 @@ def initialize():
 cols = random.random(), random.random(), random.random()
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def draw_screen_backend(game_matrix):
     screen_array = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
 
-    for row in range(grid_rows):
-        for col in range(grid_cols):
+    for row in prange(grid_rows):
+        for col in prange(grid_cols):
             x, y, w, h = col * CELL_SIDE, row * CELL_SIDE, CELL_SIDE, CELL_SIDE
-            for i in range(3):
+            for i in prange(3):
                 screen_array[x:x+w, y:y+h,
                              i] = game_matrix[row, col] * 255 * cols[i]
     return screen_array
@@ -53,12 +54,12 @@ def draw_screen(screen_: pg.Surface, game_matrix):
     display_fps()
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def inverted_gaussian(x):
     return -1/(2**(0.6*x**2)) + 1
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def game_of_life_activation(x):
     if x == 3. or x == 11. or x == 12.:
         return 1.
@@ -69,29 +70,29 @@ def identity_activation(x):
     return x
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def gaussian(x, b):
     return 1/(2**((x-b)**2))
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def pathways_activation(x):
     return gaussian(x, 3.5)
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def waves_activation(x):
     return abs(1.2*x)
 
 
-@njit
+@jit(nopython=True, parallel=True)
 def slime_mould_activation(x):
     result = -1. / (0.89 * x**2 + 1.) + 1.
     return result
 
 
-@njit(parallel=True, target_backend=cuda)
-def worm(game_matrix: np.ndarray):
+@jit(nopython=True, parallel=True)
+def main(game_matrix: np.ndarray):
 
     worm_filter = np.array(
         [[0.68, -.9, 0.68], [-.9, -.66, -.9], [0.68, -.9, 0.68]])
@@ -147,11 +148,11 @@ def worm(game_matrix: np.ndarray):
 
     temp_game_matrix = np.zeros(game_matrix.shape)
 
-    for row in range(rows):
-        for col in range(cols):
+    for row in prange(rows):
+        for col in prange(cols):
             ans = 0
-            for i in range(-1, 2):
-                for j in range(-1, 2):
+            for i in prange(-1, 2):
+                for j in prange(-1, 2):
                     x_val = col + i
                     y_val = row + j
 
@@ -166,7 +167,7 @@ def worm(game_matrix: np.ndarray):
                         y_val = y_val - rows
 
                     ans += game_matrix[y_val, x_val] * \
-                        mitosis_filter[i+1, j+1]
+                        slime_mould_filter[i+1, j+1]
 
             temp_game_matrix[row, col] = slime_mould_activation(ans)
 
@@ -218,7 +219,7 @@ while running:
         grid_changed = True
 
     for i in range(iterations_per_frame):
-        gameMatrix = worm(gameMatrix)
+        gameMatrix = main(gameMatrix)
     grid_changed = True
 
     pg.display.flip()
